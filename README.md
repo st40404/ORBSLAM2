@@ -269,3 +269,14 @@ When you are asked `Do you want to save the map?(y/n)`. Just type in `y` or `Y` 
 
 ### Load Map
 After all images are processed, command line will show `Do you want to save the map?(y/n)`, Just type in `y` or `Y` then hit `enter` to load a map. The program will load a binary file named `MapPointandKeyFrame.bin` automatically.
+
+
+# 1. Save map and Load Map
+**Authors:** ([BoomFan](https://github.com/BoomFan/ORB_SLAM2))
+
+### the author BoomFan had publish pkg about save load map, clone his pkg in your workspace/src
+```
+    git clone https://github.com/BoomFan/ORB_SLAM2.git
+```
+
+### add 
