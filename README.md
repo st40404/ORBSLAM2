@@ -271,12 +271,143 @@ When you are asked `Do you want to save the map?(y/n)`. Just type in `y` or `Y` 
 After all images are processed, command line will show `Do you want to save the map?(y/n)`, Just type in `y` or `Y` then hit `enter` to load a map. The program will load a binary file named `MapPointandKeyFrame.bin` automatically.
 
 
-# 1. Save map and Load Map
-**Authors:** ([BoomFan](https://github.com/BoomFan/ORB_SLAM2))
+# ORBSLAM2 Manual from end to end (above saving map and loading Map)
+**Resource from:** ([BoomFan](https://github.com/BoomFan/ORB_SLAM2))
 
-### the author BoomFan had publish pkg about save load map, clone his pkg in your workspace/src
+### set ORBSLAM2 pkg
+the author BoomFan had publish pkg about save load map, clone his pkg in your workspace/src
 ```
     git clone https://github.com/BoomFan/ORB_SLAM2.git
 ```
 
-### add 
+add the header in include/System.h
+```
+#include <unistd.h>
+```
+
+build this pkg
+```
+./build.sh
+./build_ros.sh
+```
+
+change the reading path of strPathSystemSetting param in src/system.cc 
+from 
+```
+string strPathSystemSetting = cwd + "/" + strSettingsFile.c_str();
+```
+to
+```
+string strPathSystemSetting = strSettingsFile.c_str();
+```
+
+add SaveMap in ros_rgbd.cc
+replace from
+```
+// Save camera trajectory
+SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
+```
+to
+```
+// Save camera trajectory
+SLAM.SaveTrajectoryTUM("CameraTrajectory.txt");
+SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");  
+
+// Save customized Map 
+SLAM.SaveMap("MapPointandKeyFrame.bin");
+```
+
+### set realsense pkg
+install realsense pkg under workspace/src, and calibrate yout camera
+```
+git clone https://github.com/intel-ros/realsense.git
+git clone https://github.com/pal-robotics/ddynamic_reconfigure.git
+```
+
+change topic name of image_raw in realsense/realsense2_camera/launch/rs_rgbd.launch
+```
+<remap from="/camera/aligned_depth_to_color/image_raw" to="/camera/depth_registered/image_raw" />
+<remap from="/camera/color/image_raw"                  to="/camera/rgb/image_raw" />
+```
+
+### set a launch pkg
+create a package name all_process and a launch name orbslam2_rgbd.launch in ws/src/all_process/launch
+```
+<launch>
+
+    <!-- open launch: realsense driver -->
+    <include file="$(find realsense2_camera)/launch/rs_rgbd.launch">  </include>
+
+
+    <arg
+    name="path_to_vocabulary"
+    default="$(find ORB_SLAM2)/data/ORBvoc.txt"
+    />
+
+    <arg
+    name="path_to_settings"
+    default="$(find ORB_SLAM2)/data/TUM3.yaml"
+    />
+
+    <!-- open node: orb_slam -->
+    <node pkg="ORB_SLAM2"
+        name="RGBD" 
+        type="RGBD"
+        args= "$(arg path_to_vocabulary) $(arg path_to_settings)" />
+
+</launch>
+```
+
+### setting file
+#### ORBvoc.txt
+put src/ORB_SLAM2/Vocabulary/ORBvoc.txt to src/ORB_SLAM2/Examples/ROS/ORB_SLAM2/data/
+
+#### associations.txt, dapth and rgb
+set camera calibration setting associations.txt, dapth folder and rgb folder to src/ORB_SLAM2/Examples/ROS/ORB_SLAM2/data/
+
+**Resource from:** ([(Taeyoung96)](https://github.com/Taeyoung96/Make-ORB-SLAM2-RGBD-dataset))
+
+clone Taeyoung96's pkg under wokspace/src
+```
+git clone https://github.com/Taeyoung96/Make-ORB-SLAM2-RGBD-dataset.git
+```
+
+clean the previous objects
+```
+rm -rf rgb depths rgb.txt depth.txt associations.txt
+mkdir rgb depth
+```
+
+make the rgb and depth image 
+```
+python rs-get-Sequence.py 
+```
+
+combine rgb.txt and depth.txt by associate.py
+```
+python associate.py --rgb_path rgb.txt --depth_path depth.txt --output associations.txt
+```
+
+#### TUM3.yaml
+copy TUM3.yaml from /ORB_SLAM2/Examples/RGB-D to ORB_SLAM2/Examples/ROS/ORB_SLAM2/data
+
+get intrinsics from topic /camera/color/camera_info
+you can get in following param from camera_info
+```
+K:[x1, x2, x3, y1, y2, y3, z1, z2, z3]
+Camera.fx : x1
+Camera.fy : y2 
+Camera.cx : x3
+Camera.cy : y3
+
+Camera.k1: 0.0
+Camera.k2: 0.0
+Camera.p1: 0.0
+Camera.p2: 0.0
+
+Camera.width: 1280
+Camera.height: 720
+```
+
+#### execute orbslam2_rgbd.launch
+roslaunch all_process orbslam2_rgbd.launch 
