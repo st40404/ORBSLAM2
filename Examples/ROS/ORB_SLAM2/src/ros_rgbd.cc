@@ -34,17 +34,41 @@
 
 #include"../../../include/System.h"
 
+
+// add pcl publish header
+#include <pcl_ros/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
+
+typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
+
+
+
 using namespace std;
 
 class ImageGrabber
 {
 public:
+
     ImageGrabber(ORB_SLAM2::System* pSLAM):mpSLAM(pSLAM){}
 
     void GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD);
 
+    // define Pointcloud topic
+    ros::Publisher MapPoint_pub;
+    // define CurrentFrame to get data from tracker
+    vector<cv::KeyPoint> CurrentFrame;
+
+
+    vector<float> CurrentDepth;
+
+    // add callback function to get current frame from Tracker, and publish
+    void callback();
+
+
     ORB_SLAM2::System* mpSLAM;
 };
+
 
 int main(int argc, char **argv)
 {
@@ -56,20 +80,24 @@ int main(int argc, char **argv)
         cerr << endl << "Usage: rosrun ORB_SLAM2 RGBD path_to_vocabulary path_to_settings" << endl;        
         ros::shutdown();
         return 1;
-    }    
+    }
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
     ORB_SLAM2::System SLAM(argv[1],argv[2],ORB_SLAM2::System::RGBD,true);
 
     ImageGrabber igb(&SLAM);
 
+
     ros::NodeHandle nh;
+
+    //define /Ron/MapPoint topic
+    igb.MapPoint_pub = nh.advertise<PointCloud>("/Ron/KeyFrame", 1);
 
     message_filters::Subscriber<sensor_msgs::Image> rgb_sub(nh, "/camera/rgb/image_raw", 1);
     message_filters::Subscriber<sensor_msgs::Image> depth_sub(nh, "camera/depth_registered/image_raw", 1);
     typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> sync_pol;
     message_filters::Synchronizer<sync_pol> sync(sync_pol(10), rgb_sub,depth_sub);
-    sync.registerCallback(boost::bind(&ImageGrabber::GrabRGBD,&igb,_1,_2));
+    sync.registerCallback(boost::bind(&ImageGrabber::GrabRGBD, &igb, _1, _2));
 
     ros::spin();
 
@@ -88,10 +116,33 @@ int main(int argc, char **argv)
     return 0;
 }
 
+
+// get current data from tracker, and publish
+void ImageGrabber::callback()
+{
+    CurrentFrame = mpSLAM->GetmpTracker();
+    CurrentDepth = mpSLAM->GetmvDepth();
+    mpSLAM->Getpose();
+
+    pcl::PointCloud<pcl::PointXYZ> cloud;
+    cloud.header.frame_id = "camera_aligned_depth_to_color_frame";
+    cloud.points.resize (CurrentFrame.size());
+    for (size_t i=0; i<CurrentFrame.size(); i++)
+    {
+        cloud.points[i].x = CurrentFrame[i].pt.x / 100.0;
+        cloud.points[i].y = CurrentFrame[i].pt.y / 100.0 ;
+        cloud.points[i].z = CurrentDepth[i];
+    }
+
+    MapPoint_pub.publish(cloud);
+}
+
+
 void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD)
 {
     // Copy the ros image message to cv::Mat.
     cv_bridge::CvImageConstPtr cv_ptrRGB;
+
     try
     {
         cv_ptrRGB = cv_bridge::toCvShare(msgRGB);
@@ -112,8 +163,8 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
         ROS_ERROR("cv_bridge exception: %s", e.what());
         return;
     }
-
     mpSLAM->TrackRGBD(cv_ptrRGB->image,cv_ptrD->image,cv_ptrRGB->header.stamp.toSec());
+
+    // get current data from tracker, and publish
+    callback();
 }
-
-

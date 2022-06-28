@@ -655,4 +655,30 @@ vector<cv::KeyPoint> System::GetTrackedKeyPointsUn()
     return mTrackedKeyPointsUn;
 }
 
+vector<cv::KeyPoint> System::GetmpTracker()
+{
+    unique_lock<mutex> lock(mMutexState);
+    return mpTracker->mCurrentFrame.mvKeys;
+}
+
+
+vector<float> System::GetmvDepth()
+{
+    unique_lock<mutex> lock(mMutexState);
+    return mpTracker->mCurrentFrame.mvDepth;
+}
+
+
+void System::Getpose()
+{
+    unique_lock<mutex> lock(mMutexState);
+    cerr << 'aaaaaaaaaaaaaaaa' << endl;
+    cerr << 'aaaaaaaaaaaaaaaa' << endl;
+    cerr << 'aaaaaaaaaaaaaaaa' << endl;
+
+    cerr << mpTracker->mCurrentFrame.mpReferenceKF->GetPose() << endl;
+}
+
+
+
 } //namespace ORB_SLAM

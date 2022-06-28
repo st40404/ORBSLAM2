@@ -133,6 +133,11 @@ public:
     void SetViewerIMUFlagTrue();
     void SetViewerIMUFlagFalse();
 
+    // get mCurrentFrame data
+    vector<cv::KeyPoint> GetmpTracker();
+    vector<float> GetmvDepth();
+    void Getpose();
+
 private:
 
     // Input sensor

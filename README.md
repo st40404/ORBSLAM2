@@ -277,7 +277,7 @@ After all images are processed, command line will show `Do you want to save the 
 ### set ORBSLAM2 pkg
 the author BoomFan had publish pkg about save load map, clone his pkg in your workspace/src
 ```
-    git clone https://github.com/BoomFan/ORB_SLAM2.git
+git clone https://github.com/BoomFan/ORB_SLAM2.git
 ```
 
 add the header in include/System.h
@@ -410,4 +410,6 @@ Camera.height: 720
 ```
 
 #### execute orbslam2_rgbd.launch
+```
 roslaunch all_process orbslam2_rgbd.launch 
+```
