@@ -668,15 +668,10 @@ vector<float> System::GetmvDepth()
     return mpTracker->mCurrentFrame.mvDepth;
 }
 
-
-void System::Getpose()
+cv::Mat System::Getpose()
 {
     unique_lock<mutex> lock(mMutexState);
-    cerr << 'aaaaaaaaaaaaaaaa' << endl;
-    cerr << 'aaaaaaaaaaaaaaaa' << endl;
-    cerr << 'aaaaaaaaaaaaaaaa' << endl;
-
-    cerr << mpTracker->mCurrentFrame.mpReferenceKF->GetPose() << endl;
+    return mpTracker->mCurrentFrame.mpReferenceKF->GetPose();
 }
 
 

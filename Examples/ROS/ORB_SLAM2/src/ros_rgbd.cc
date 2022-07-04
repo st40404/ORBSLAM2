@@ -42,9 +42,13 @@
 
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 
-
+// add Camera pose publish type header
+#include "std_msgs/MultiArrayDimension.h"
+#include "std_msgs/Float64MultiArray.h"
 
 using namespace std;
+
+
 
 class ImageGrabber
 {
@@ -55,16 +59,27 @@ public:
     void GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD);
 
     // define Pointcloud topic
-    ros::Publisher MapPoint_pub;
-    // define CurrentFrame to get data from tracker
+    ros::Publisher KeyFrame_pub;
+    // define camera Pose topic
+    ros::Publisher CamPose_pub;
+
+    // define CurrentFrame to get 2D(x,y) data from tracker
     vector<cv::KeyPoint> CurrentFrame;
-
-
+    // define CurrentDepth to get depth(z) from tracker
     vector<float> CurrentDepth;
+    // define CurrentPose to get camera pose from keyfram
+    cv::Mat CurrentPose;
+    // define pose to get save camera pose
+    std_msgs::Float64MultiArray pose;
+    // set pose varity setting
+    void SetPose();
 
     // add callback function to get current frame from Tracker, and publish
     void callback();
-
+    // add PublishPointcloud function to publish point cloud
+    void PublishPointcloud();
+    // add PublishPose function to publish camera pose
+    void PublishCamPose();
 
     ORB_SLAM2::System* mpSLAM;
 };
@@ -90,8 +105,12 @@ int main(int argc, char **argv)
 
     ros::NodeHandle nh;
 
-    //define /Ron/MapPoint topic
-    igb.MapPoint_pub = nh.advertise<PointCloud>("/Ron/KeyFrame", 1);
+    // define /Ron/KeyFrame topic
+    igb.KeyFrame_pub = nh.advertise<PointCloud>("/Ron/KeyFrame", 1);
+    // define /Ron/CamPose topic
+    igb.CamPose_pub = nh.advertise<std_msgs::Float64MultiArray>("/Ron/CamPose", 1);
+    // set publish message of member pose
+    igb.SetPose();
 
     message_filters::Subscriber<sensor_msgs::Image> rgb_sub(nh, "/camera/rgb/image_raw", 1);
     message_filters::Subscriber<sensor_msgs::Image> depth_sub(nh, "camera/depth_registered/image_raw", 1);
@@ -117,13 +136,17 @@ int main(int argc, char **argv)
 }
 
 
-// get current data from tracker, and publish
+// get current data from tracker
 void ImageGrabber::callback()
 {
     CurrentFrame = mpSLAM->GetmpTracker();
     CurrentDepth = mpSLAM->GetmvDepth();
-    mpSLAM->Getpose();
+    CurrentPose = mpSLAM->Getpose();
+}
 
+// publish point clouds
+void ImageGrabber::PublishPointcloud()
+{
     pcl::PointCloud<pcl::PointXYZ> cloud;
     cloud.header.frame_id = "camera_aligned_depth_to_color_frame";
     cloud.points.resize (CurrentFrame.size());
@@ -134,8 +157,38 @@ void ImageGrabber::callback()
         cloud.points[i].z = CurrentDepth[i];
     }
 
-    MapPoint_pub.publish(cloud);
+    KeyFrame_pub.publish(cloud);
 }
+
+// publish camera pose
+void ImageGrabber::PublishCamPose()
+{
+    std::vector<double> vec(CurrentPose.cols*CurrentPose.rows, 0);
+    float* matData = (float*)CurrentPose.data;
+
+    for (int i=0; i<CurrentPose.rows; i++)
+        for (int j=0; j<CurrentPose.cols; j++)
+            vec[i*CurrentPose.cols + j] = matData[i*CurrentPose.cols + j];
+
+    pose.data = vec;
+    CamPose_pub.publish(pose);
+}
+
+// set publish message of member pose
+void ImageGrabber::SetPose()
+{
+    // fill out message:
+    pose.layout.dim.push_back(std_msgs::MultiArrayDimension());
+    pose.layout.dim.push_back(std_msgs::MultiArrayDimension());
+    pose.layout.dim[0].label = "height";
+    pose.layout.dim[1].label = "width";
+    pose.layout.dim[0].size = 4;
+    pose.layout.dim[1].size = 4;
+    pose.layout.dim[0].stride = 16;
+    pose.layout.dim[1].stride = 4;
+    pose.layout.data_offset = 0;
+}
+
 
 
 void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD)
@@ -165,6 +218,9 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
     }
     mpSLAM->TrackRGBD(cv_ptrRGB->image,cv_ptrD->image,cv_ptrRGB->header.stamp.toSec());
 
-    // get current data from tracker, and publish
+    // get current data from tracker and keyframe
     callback();
+    // publish point cloud and camera pose
+    PublishPointcloud();
+    PublishCamPose();
 }

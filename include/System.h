@@ -136,7 +136,7 @@ public:
     // get mCurrentFrame data
     vector<cv::KeyPoint> GetmpTracker();
     vector<float> GetmvDepth();
-    void Getpose();
+    cv::Mat Getpose();
 
 private:
 
